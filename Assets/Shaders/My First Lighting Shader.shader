@@ -18,8 +18,12 @@
 
 			#pragma target 3.0
 
+			#pragma multi_compile _ VERTEXLIGHT_ON
+
 			#pragma vertex MyVertexProgram
 			#pragma fragment MyFragmentProgram
+
+			#define FORWARD_BASE_PASS
 
 			#include "My Lighting.cginc"
 
@@ -38,10 +42,12 @@
 
 			#pragma target 3.0
 
+
+			#pragma multi_compile_fwdadd
+			//#pragma multi_compile DIRECTIONAL DIRECTIONAL_COOKIE POINT SPOT
+
 			#pragma vertex MyVertexProgram
 			#pragma fragment MyFragmentProgram
-
-			#define POINT
 
 			#include "My Lighting.cginc"
 
