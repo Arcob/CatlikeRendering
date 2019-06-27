@@ -12,10 +12,9 @@
 		_DetailBumpScale ("Detail Bump Scale", Float) = 1
 	}
 
-
 	CGINCLUDE
 
-		#define BINORMAL_PER_FRAGMENT
+	#define BINORMAL_PER_FRAGMENT
 
 	ENDCG
 
@@ -30,6 +29,7 @@
 
 			#pragma target 3.0
 
+			#pragma multi_compile _ SHADOWS_SCREEN
 			#pragma multi_compile _ VERTEXLIGHT_ON
 
 			#pragma vertex MyVertexProgram
@@ -54,12 +54,29 @@
 
 			#pragma target 3.0
 
-			#pragma multi_compile_fwdadd
-
+			#pragma multi_compile_fwdadd_fullshadows
+			
 			#pragma vertex MyVertexProgram
 			#pragma fragment MyFragmentProgram
 
 			#include "My Lighting.cginc"
+
+			ENDCG
+		}
+
+		Pass {
+			Tags {
+				"LightMode" = "ShadowCaster"
+			}
+
+			CGPROGRAM
+
+			#pragma target 3.0
+
+			#pragma vertex MyShadowVertexProgram
+			#pragma fragment MyShadowFragmentProgram
+
+			#include "My Shadows.cginc"
 
 			ENDCG
 		}
