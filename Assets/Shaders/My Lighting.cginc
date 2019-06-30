@@ -13,6 +13,7 @@ float4 _MainTex_ST, _DetailTex_ST;
 sampler2D _NormalMap, _DetailNormalMap;
 float _BumpScale, _DetailBumpScale;
 
+sampler2D _MetallicMap;
 float _Metallic;
 float _Smoothness;
 
@@ -43,6 +44,14 @@ struct Interpolators {
 		float3 vertexLightColor : TEXCOORD6;
 	#endif
 };
+
+float GetMetallic (Interpolators i) {
+	#if defined(_METALLIC_MAP)
+		return tex2D(_MetallicMap, i.uv.xy).r;
+	#else
+		return _Metallic;
+	#endif
+}
 
 void ComputeVertexLightColor (inout Interpolators i) {
 	#if defined(VERTEXLIGHT_ON)
@@ -98,6 +107,22 @@ UnityLight CreateLight (Interpolators i) {
 	return light;
 }
 
+float3 BoxProjection (
+	float3 direction, float3 position,
+	float4 cubemapPosition, float3 boxMin, float3 boxMax
+) {
+	#if UNITY_SPECCUBE_BOX_PROJECTION
+		UNITY_BRANCH
+		if (cubemapPosition.w > 0) {
+			float3 factors =
+				((direction > 0 ? boxMax : boxMin) - position) / direction;
+			float scalar = min(min(factors.x, factors.y), factors.z);
+			direction = direction * scalar + (position - cubemapPosition);
+		}
+	#endif
+	return direction;
+}
+
 UnityIndirect CreateIndirectLight (Interpolators i, float3 viewDir) {
 	UnityIndirect indirectLight;
 	indirectLight.diffuse = 0;
@@ -110,8 +135,37 @@ UnityIndirect CreateIndirectLight (Interpolators i, float3 viewDir) {
 	#if defined(FORWARD_BASE_PASS)
 		indirectLight.diffuse += max(0, ShadeSH9(float4(i.normal, 1)));
 		float3 reflectionDir = reflect(-viewDir, i.normal);
-		float4 envSample = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectionDir);
-		indirectLight.specular = DecodeHDR(envSample, unity_SpecCube0_HDR);
+		Unity_GlossyEnvironmentData envData;
+		envData.roughness = 1 - _Smoothness;
+		envData.reflUVW = BoxProjection(
+			reflectionDir, i.worldPos,
+			unity_SpecCube0_ProbePosition,
+			unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax
+		);
+		float3 probe0 = Unity_GlossyEnvironment(
+			UNITY_PASS_TEXCUBE(unity_SpecCube0), unity_SpecCube0_HDR, envData
+		);
+		envData.reflUVW = BoxProjection(
+			reflectionDir, i.worldPos,
+			unity_SpecCube1_ProbePosition,
+			unity_SpecCube1_BoxMin, unity_SpecCube1_BoxMax
+		);
+		#if UNITY_SPECCUBE_BLENDING
+			float interpolator = unity_SpecCube0_BoxMin.w;
+			UNITY_BRANCH
+			if (interpolator < 0.99999) {
+				float3 probe1 = Unity_GlossyEnvironment(
+					UNITY_PASS_TEXCUBE_SAMPLER(unity_SpecCube1, unity_SpecCube0),
+					unity_SpecCube0_HDR, envData
+				);
+				indirectLight.specular = lerp(probe1, probe0, interpolator);
+			}
+			else {
+				indirectLight.specular = probe0;
+			}
+		#else
+			indirectLight.specular = probe0;
+		#endif
 	#endif
 
 	return indirectLight;
@@ -148,7 +202,7 @@ float4 MyFragmentProgram (Interpolators i) : SV_TARGET {
 	float3 specularTint;
 	float oneMinusReflectivity;
 	albedo = DiffuseAndSpecularFromMetallic(
-		albedo, _Metallic, specularTint, oneMinusReflectivity
+		albedo, GetMetallic(i), specularTint, oneMinusReflectivity
 	);
 
 	return UNITY_BRDF_PBS(
