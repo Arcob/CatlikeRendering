@@ -9,31 +9,48 @@ public class MyLightingShaderGUI : ShaderGUI {
 	}
 
 	enum RenderingMode {
-		Opaque, Cutout, Fade
-    }
+		Opaque, Cutout, Fade, Transparent
+	}
 
-    struct RenderingSettings
-    {
-        public RenderQueue queue;
-        public string renderType;
+	struct RenderingSettings {
+		public RenderQueue queue;
+		public string renderType;
+		public BlendMode srcBlend, dstBlend;
+		public bool zWrite;
 
-        public static RenderingSettings[] modes = {
-            new RenderingSettings() {
-                queue = RenderQueue.Geometry,
-                renderType = ""
-            },
-            new RenderingSettings() {
-                queue = RenderQueue.AlphaTest,
-                renderType = "TransparentCutout"
-            },
-            new RenderingSettings() {
-                queue = RenderQueue.Transparent,
-                renderType = "Transparent"
-            }
-        };
-    }
+		public static RenderingSettings[] modes = {
+			new RenderingSettings() {
+				queue = RenderQueue.Geometry,
+				renderType = "",
+				srcBlend = BlendMode.One,
+				dstBlend = BlendMode.Zero,
+				zWrite = true
+			},
+			new RenderingSettings() {
+				queue = RenderQueue.AlphaTest,
+				renderType = "TransparentCutout",
+				srcBlend = BlendMode.One,
+				dstBlend = BlendMode.Zero,
+				zWrite = true
+			},
+			new RenderingSettings() {
+				queue = RenderQueue.Transparent,
+				renderType = "Transparent",
+				srcBlend = BlendMode.SrcAlpha,
+				dstBlend = BlendMode.OneMinusSrcAlpha,
+				zWrite = false
+			},
+			new RenderingSettings() {
+				queue = RenderQueue.Transparent,
+				renderType = "Transparent",
+				srcBlend = BlendMode.One,
+				dstBlend = BlendMode.OneMinusSrcAlpha,
+				zWrite = false
+			}
+		};
+	}
 
-    static GUIContent staticLabel = new GUIContent();
+	static GUIContent staticLabel = new GUIContent();
 
 	static ColorPickerHDRConfig emissionConfig =
 		new ColorPickerHDRConfig(0f, 99f, 1f / 99f, 3f);
@@ -61,27 +78,34 @@ public class MyLightingShaderGUI : ShaderGUI {
 			mode = RenderingMode.Cutout;
 			shouldShowAlphaCutoff = true;
 		}
-        else if (IsKeywordEnabled("_RENDERING_FADE"))
-        {
-            mode = RenderingMode.Fade;
-        }
+		else if (IsKeywordEnabled("_RENDERING_FADE")) {
+			mode = RenderingMode.Fade;
+		}
+		else if (IsKeywordEnabled("_RENDERING_TRANSPARENT")) {
+			mode = RenderingMode.Transparent;
+		}
 
-        EditorGUI.BeginChangeCheck();
+		EditorGUI.BeginChangeCheck();
 		mode = (RenderingMode)EditorGUILayout.EnumPopup(
 			MakeLabel("Rendering Mode"), mode
 		);
 		if (EditorGUI.EndChangeCheck()) {
 			RecordAction("Rendering Mode");
 			SetKeyword("_RENDERING_CUTOUT", mode == RenderingMode.Cutout);
-            SetKeyword("_RENDERING_FADE", mode == RenderingMode.Fade);
+			SetKeyword("_RENDERING_FADE", mode == RenderingMode.Fade);
+			SetKeyword(
+				"_RENDERING_TRANSPARENT", mode == RenderingMode.Transparent
+			);
 
-            RenderingSettings settings = RenderingSettings.modes[(int)mode];
-            foreach (Material m in editor.targets)
-            {
-                m.renderQueue = (int)settings.queue;
-                m.SetOverrideTag("RenderType", settings.renderType);
-            }
-        }
+			RenderingSettings settings = RenderingSettings.modes[(int)mode];
+			foreach (Material m in editor.targets) {
+				m.renderQueue = (int)settings.queue;
+				m.SetOverrideTag("RenderType", settings.renderType);
+				m.SetInt("_SrcBlend", (int)settings.srcBlend);
+				m.SetInt("_DstBlend", (int)settings.dstBlend);
+				m.SetInt("_ZWrite", settings.zWrite ? 1 : 0);
+			}
+		}
 	}
 
 	void DoMain () {
