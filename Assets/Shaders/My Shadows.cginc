@@ -81,7 +81,7 @@ float4 MyShadowFragmentProgram (Interpolators i) : SV_TARGET {
 	#endif
 
 	#if SHADOWS_SEMITRANSPARENT
-		float dither = tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.01, 0.0625)).a;
+		float dither = tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, alpha * 0.9375)).a;
 		clip(dither - 0.01);
 	#endif
 	
