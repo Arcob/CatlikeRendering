@@ -4,7 +4,11 @@
 #include "UnityCG.cginc"
 
 #if defined(_RENDERING_FADE) || defined(_RENDERING_TRANSPARENT)
-	#define SHADOWS_SEMITRANSPARENT 1
+	#if defined(_SEMITRANSPARENT_SHADOWS)
+		#define SHADOWS_SEMITRANSPARENT 1
+	#else
+		#define _RENDERING_CUTOUT
+	#endif
 #endif
 
 #if SHADOWS_SEMITRANSPARENT || defined(_RENDERING_CUTOUT)
@@ -17,6 +21,7 @@ float4 _Tint;
 sampler2D _MainTex;
 float4 _MainTex_ST;
 float _AlphaCutoff;
+
 sampler3D _DitherMaskLOD;
 
 struct VertexData {
@@ -62,7 +67,8 @@ InterpolatorsVertex MyShadowVertexProgram (VertexData v) {
 	InterpolatorsVertex i;
 	#if defined(SHADOWS_CUBE)
 		i.position = UnityObjectToClipPos(v.position);
-		i.lightVec = mul(unity_ObjectToWorld, v.position).xyz - _LightPositionRange.xyz;
+		i.lightVec =
+			mul(unity_ObjectToWorld, v.position).xyz - _LightPositionRange.xyz;
 	#else
 		i.position = UnityClipSpaceShadowCasterPos(v.position.xyz, v.normal);
 		i.position = UnityApplyLinearShadowBias(i.position);
@@ -81,7 +87,8 @@ float4 MyShadowFragmentProgram (Interpolators i) : SV_TARGET {
 	#endif
 
 	#if SHADOWS_SEMITRANSPARENT
-		float dither = tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, alpha * 0.9375)).a;
+		float dither =
+			tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, alpha * 0.9375)).a;
 		clip(dither - 0.01);
 	#endif
 	
@@ -93,5 +100,9 @@ float4 MyShadowFragmentProgram (Interpolators i) : SV_TARGET {
 		return 0;
 	#endif
 }
+
+#if defined(SHADOWS_CUBE)
+
+#endif
 
 #endif
