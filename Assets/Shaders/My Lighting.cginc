@@ -8,7 +8,7 @@
 	#if !defined(FOG_DISTANCE)
 		#define FOG_DEPTH 1
 	#endif
-	#define FOG_ON
+	#define FOG_ON 1
 #endif
 
 float4 _Tint;
@@ -290,17 +290,17 @@ void InitializeFragmentNormal(inout Interpolators i) {
 }
 
 float4 ApplyFog (float4 color, Interpolators i) {
-	#if defined(FOG_ON)
+	#if FOG_ON
 		float viewDistance = length(_WorldSpaceCameraPos - i.worldPos.xyz);
 		#if FOG_DEPTH
 			viewDistance = UNITY_Z_0_FAR_FROM_CLIPSPACE(i.worldPos.w);
 		#endif
 		UNITY_CALC_FOG_FACTOR_RAW(viewDistance);
-		float4 fogColor = 0;
+		float3 fogColor = 0;
 		#if defined(FORWARD_BASE_PASS)
-			fogColor = unity_FogColor;
+			fogColor = unity_FogColor.rgb;
 		#endif
-		color = lerp(fogColor, color, saturate(unityFogFactor));
+		color.rgb = lerp(fogColor, color.rgb, saturate(unityFogFactor));
 	#endif
 	return color;
 }
